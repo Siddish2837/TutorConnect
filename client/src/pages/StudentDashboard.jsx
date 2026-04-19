@@ -31,12 +31,15 @@ export default function StudentDashboard() {
   useEffect(() => { loadData(); }, []);
 
   const handleCancel = async (id) => {
-    if (!confirm('Cancel this booking?')) return;
+    if (!window.confirm('Cancel this booking?')) return;
     try {
       await cancelBooking(id);
       toast.success('Booking cancelled. Refund initiated.');
       loadData();
-    } catch (err) { toast.error(err.response?.data?.message || 'Cancel failed'); }
+    } catch (err) { 
+      toast.error(err.response?.data?.message || 'Cancel failed'); 
+      console.error(err);
+    }
   };
 
   const completedBookings = bookings.filter(b => b.status === 'completed');
