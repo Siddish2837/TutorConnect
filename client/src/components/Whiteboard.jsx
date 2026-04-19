@@ -12,7 +12,8 @@ export default function Whiteboard({ bookingId, token }) {
   const lastPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const s = io('/whiteboard', { auth: { token } });
+    const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : '';
+    const s = io(`${apiUrl}/whiteboard`, { auth: { token } });
     setSocket(s);
     s.emit('join_session', { bookingId });
     s.on('draw', (data) => remoteDraw(data));

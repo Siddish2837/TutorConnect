@@ -14,7 +14,8 @@ export default function ChatPanel({ initialUserId = null }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    const s = io('/chat', { auth: { token } });
+    const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : '';
+    const s = io(`${apiUrl}/chat`, { auth: { token } });
     setSocket(s);
     s.on('new_message', (msg) => setMessages(prev => [...prev, msg]));
     s.on('typing', ({ userId, isTyping }) => { if (userId !== user?.id) setTyping(isTyping); });
