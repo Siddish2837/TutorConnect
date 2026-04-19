@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { register as registerApi, googleAuth } from '../services/authService';
+import { register as registerApi } from '../services/authService';
 import toast from 'react-hot-toast';
-import { GoogleLogin } from '@react-oauth/google';
 
 const ROLES = [
   { id: 'student', label: 'Student', icon: '🎓' },
   { id: 'tutor', label: 'Tutor', icon: '👨‍🏫' },
-  { id: 'admin', label: 'Admin', icon: '👔' },
 ];
 
 const SUBJECTS = ['Mathematics','Physics','Chemistry','Biology','English','Programming','Data Science','Web Development'];
@@ -38,19 +36,6 @@ export default function Register() {
     } finally { setLoading(false); }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    try {
-      setLoading(true);
-      const { data } = await googleAuth({ token: credentialResponse.credential, role });
-      login(data.user, data.token);
-      toast.success(`Welcome to TutorConnect, ${data.user.name.split(' ')[0]}! 🎉`);
-      const dash = data.user.role === 'admin' ? '/dashboard/admin' : data.user.role === 'tutor' ? '/dashboard/tutor' : '/dashboard/student';
-      navigate(dash);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Google Registration failed');
-    } finally { setLoading(false); }
-  };
-
   return (
     <div style={wrapperStyle}>
       <div style={cardStyle} className="animate-fade">
@@ -61,7 +46,7 @@ export default function Register() {
         </div>
 
         {/* Role selector */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
           {ROLES.map(r => (
             <button key={r.id} type="button" onClick={() => setRole(r.id)} style={{
               padding: '0.85rem 0.5rem', border: '2px solid',
@@ -76,16 +61,6 @@ export default function Register() {
             </button>
           ))}
         </div>
-
-        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => toast.error('Google Sign-up Failed')}
-            text="signup_with"
-          />
-        </div>
-
-        <div className="divider mb-4"><span style={{ background: 'var(--bg-2)', padding: '0 1rem' }}>Or register with email</span></div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">

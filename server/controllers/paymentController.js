@@ -97,7 +97,13 @@ exports.getPaymentHistory = async (req, res, next) => {
     const bookingIds = bookings.map((b) => b.id);
     const payments = await Payment.findAll({
       where: { booking_id: bookingIds },
-      include: [{ model: Booking, as: 'booking' }],
+      include: [{
+        model: Booking, as: 'booking',
+        include: [{
+          model: require('../models').Tutor, as: 'tutor',
+          include: [{ model: require('../models').User, as: 'user', attributes: ['name'] }],
+        }],
+      }],
       order: [['created_at', 'DESC']],
     });
     res.json(payments);

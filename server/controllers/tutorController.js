@@ -66,9 +66,10 @@ exports.updateProfile = async (req, res, next) => {
 // GET /api/tutors/subjects
 exports.getSubjects = async (req, res, next) => {
   try {
+    const { fn, col } = require('sequelize');
     const subjects = await Tutor.findAll({
       where: { approved: true },
-      attributes: [[require('sequelize').fn('DISTINCT', require('sequelize').col('subject')), 'subject']],
+      attributes: [[fn('DISTINCT', col('subject')), 'subject']],
       raw: true,
     });
     res.json(subjects.map((s) => s.subject));

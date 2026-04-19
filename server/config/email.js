@@ -13,6 +13,10 @@ const transporter = nodemailer.createTransport({
 transporter.verify((err) => {
   if (err) {
     console.warn('⚠️  Email service not configured:', err.message);
+    console.warn('   → Gmail requires an App Password (not your regular password).');
+    console.warn('   → Generate one at: https://myaccount.google.com/apppasswords');
+    console.warn('   → Update EMAIL_PASS in server/.env with your App Password.');
+    console.warn('   → Email sending is disabled until this is fixed.');
   } else {
     console.log('📧 Email service ready');
   }

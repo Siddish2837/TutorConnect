@@ -39,10 +39,15 @@ export default function StudentDashboard() {
     } catch (err) { toast.error(err.response?.data?.message || 'Cancel failed'); }
   };
 
+  const completedBookings = bookings.filter(b => b.status === 'completed');
+  const avgRating = completedBookings.length > 0
+    ? (completedBookings.reduce((s, b) => s + (b.rating || 0), 0) / completedBookings.length).toFixed(1)
+    : '—';
+
   const stats = [
     { icon: '📅', num: bookings.filter(b => b.status === 'confirmed').length, label: 'Upcoming Sessions', color: 'var(--primary)' },
-    { icon: '✅', num: bookings.filter(b => b.status === 'completed').length, label: 'Completed', color: 'var(--success)' },
-    { icon: '⭐', num: '4.8', label: 'Avg Rating Given', color: 'var(--warning)' },
+    { icon: '✅', num: completedBookings.length, label: 'Completed', color: 'var(--success)' },
+    { icon: '⭐', num: avgRating, label: 'Avg Rating Given', color: 'var(--warning)' },
     { icon: '💳', num: `₹${payments.filter(p => p.status === 'success').reduce((s, p) => s + Number(p.amount), 0).toLocaleString('en-IN')}`, label: 'Total Spent', color: 'var(--accent)' },
   ];
 
@@ -132,7 +137,7 @@ export default function StudentDashboard() {
               {payments.length ? payments.map(p => (
                 <tr key={p.id}>
                   <td className="font-bold text-primary">PAY-{p.id}</td>
-                  <td>{p.booking?.tutor_id}</td>
+                  <td>{p.booking?.tutor?.user?.name || `Tutor #${p.booking?.tutor_id}`}</td>
                   <td className="font-bold">₹{p.amount}</td>
                   <td>{p.method}</td>
                   <td>{new Date(p.created_at).toLocaleDateString()}</td>

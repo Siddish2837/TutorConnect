@@ -3,9 +3,6 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { User, Tutor } = require('../models');
 const emailService = require('../services/emailService');
-const { OAuth2Client } = require('google-auth-library');
-
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateToken = (user) =>
   jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
@@ -26,7 +23,7 @@ exports.register = async (req, res, next) => {
 
     const user = await User.create({
       name, email, password_hash,
-      role: role || 'student',
+      role: (role === 'admin') ? 'student' : (role || 'student'), // prevent self-promotion to admin
       verification_token, avatar_color,
     });
 
@@ -134,74 +131,4 @@ exports.getMe = async (req, res) => {
     tutorId: tutorProfile?.id || null,
     tutorApproved: tutorProfile?.approved || null,
   });
-};
-
-// POST /api/auth/google
-exports.googleAuth = async (req, res, next) => {
-  try {
-    const { token, role } = req.body;
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    
-    const payload = ticket.getPayload();
-    const { email, name, picture } = payload;
-    
-    let user = await User.findOne({ where: { email } });
-    
-    if (!user) {
-      // Create new user instantly verified, without a password_hash initially
-      const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
-      const avatar_color = colors[Math.floor(Math.random() * colors.length)];
-      
-      user = await User.create({
-        name, 
-        email, 
-        role: role || 'student',
-        verified: true,
-        auth_provider: 'google',
-        avatar_color
-      });
-      
-      // Auto-create tutor profile if requested
-      if (user.role === 'tutor') {
-        await Tutor.create({
-          user_id: user.id,
-          subject: 'General',
-          experience: 0,
-          price: 300,
-          bio: '',
-          tags: JSON.stringify(['General']),
-          approved: false,
-        });
-      }
-    } else {
-      if (!user.is_active) return res.status(403).json({ message: 'Account suspended' });
-      // If user exists but is not verified, auto-verify them since google authenticated
-      if (!user.verified) {
-        await user.update({ verified: true, auth_provider: 'google' });
-      } else if (user.auth_provider === 'email') {
-        await user.update({ auth_provider: 'google' });
-      }
-    }
-
-    let tutorProfile = null;
-    if (user.role === 'tutor') {
-      tutorProfile = await Tutor.findOne({ where: { user_id: user.id } });
-    }
-
-    res.json({
-      token: generateToken(user),
-      user: {
-        id: user.id, name: user.name, email: user.email,
-        role: user.role, verified: user.verified,
-        avatar_color: user.avatar_color, picture,
-        tutorId: tutorProfile?.id || null,
-        tutorApproved: tutorProfile?.approved || null,
-      },
-    });
-  } catch (err) {
-    res.status(401).json({ message: 'Google authentication failed' });
-  }
 };

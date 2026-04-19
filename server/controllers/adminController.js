@@ -17,8 +17,10 @@ exports.suspendUser = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    await user.update({ is_active: !user.is_active });
-    res.json({ message: user.is_active ? 'User activated' : 'User suspended', user });
+    const newStatus = !user.is_active;
+    await user.update({ is_active: newStatus });
+    // newStatus reflects what is_active is NOW after the toggle
+    res.json({ message: newStatus ? 'User activated' : 'User suspended', user });
   } catch (err) { next(err); }
 };
 
@@ -26,6 +28,7 @@ exports.suspendUser = async (req, res, next) => {
 exports.getPendingTutors = async (req, res, next) => {
   try {
     const tutors = await Tutor.findAll({
+      where: { approved: false }, // Only show unapproved tutors awaiting review
       include: [{ model: User, as: 'user', attributes: ['name', 'email', 'avatar_color', 'created_at'] }],
       order: [['created_at', 'DESC']],
     });

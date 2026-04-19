@@ -22,6 +22,5 @@ router.post('/reset-password', [
   body('password').isLength({ min: 8 }),
 ], validate, ctrl.resetPassword);
 router.get('/me', authenticate, ctrl.getMe);
-router.post('/google', ctrl.googleAuth);
 
 module.exports = router;

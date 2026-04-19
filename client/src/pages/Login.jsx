@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { login as loginApi, googleAuth } from '../services/authService';
+import { login as loginApi } from '../services/authService';
 import toast from 'react-hot-toast';
-import { GoogleLogin } from '@react-oauth/google';
 
 export default function Login() {
   const { login } = useAuth();
@@ -26,19 +25,6 @@ export default function Login() {
     } finally { setLoading(false); }
   };
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    try {
-      setLoading(true);
-      const { data } = await googleAuth({ token: credentialResponse.credential });
-      login(data.user, data.token);
-      toast.success(`Welcome back, ${data.user.name.split(' ')[0]}! 🎉`);
-      const dash = data.user.role === 'admin' ? '/dashboard/admin' : data.user.role === 'tutor' ? '/dashboard/tutor' : '/dashboard/student';
-      navigate(dash);
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Google Login failed');
-    } finally { setLoading(false); }
-  };
-
   return (
     <div style={wrapperStyle}>
       <div style={cardStyle} className="animate-fade">
@@ -52,16 +38,6 @@ export default function Login() {
         <div className="alert alert-info text-sm mb-4">
           💡 Demo: Use email with "tutor" for tutor role, "admin" for admin role
         </div>
-
-        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-          <GoogleLogin
-            onSuccess={handleGoogleSuccess}
-            onError={() => toast.error('Google Login Failed')}
-            useOneTap
-          />
-        </div>
-
-        <div className="divider mb-4"><span style={{ background: 'var(--bg-2)', padding: '0 1rem' }}>Or sign in with email</span></div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="form-group">
