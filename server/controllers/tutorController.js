@@ -50,14 +50,23 @@ exports.getTutorById = async (req, res, next) => {
 // PUT /api/tutors/profile (tutor only)
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { subject, experience, price, bio, tags, availability } = req.body;
+    const { subject, experience, price, bio, tags, availability, name } = req.body;
     const tutor = await Tutor.findOne({ where: { user_id: req.user.id } });
     if (!tutor) return res.status(404).json({ message: 'Tutor profile not found' });
 
-    await tutor.update({ subject, experience, price, bio, tags, availability });
+    // Build update payload — only include fields that were actually sent
+    const tutorUpdate = {};
+    if (subject    !== undefined) tutorUpdate.subject      = subject;
+    if (experience !== undefined) tutorUpdate.experience   = experience;
+    if (price      !== undefined) tutorUpdate.price        = price;
+    if (bio        !== undefined) tutorUpdate.bio          = bio;
+    if (tags       !== undefined) tutorUpdate.tags         = tags;
+    if (availability !== undefined) tutorUpdate.availability = availability;
 
-    // Update user name if provided
-    if (req.body.name) await req.user.update({ name: req.body.name });
+    await tutor.update(tutorUpdate);
+
+    // Update display name on the User record (req.user is JWT payload, not a model)
+    if (name) await User.update({ name }, { where: { id: req.user.id } });
 
     res.json({ message: 'Profile updated', tutor });
   } catch (err) { next(err); }
