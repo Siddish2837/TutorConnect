@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -11,6 +11,14 @@ export default function Navbar() {
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
 
   const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '';
 
@@ -49,6 +57,9 @@ export default function Navbar() {
 
           {/* Right section */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button onClick={toggleTheme} style={iconBtnStyle} title="Toggle Theme">
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             {user ? (
               <>
                 {/* Notifications */}

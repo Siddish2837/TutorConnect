@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMyBookings, respondBooking } from '../services/bookingService';
-import { updateTutorProfile } from '../services/tutorService';
+import { updateTutorProfile, getTutorById } from '../services/tutorService';
 import ChatPanel from '../components/ChatPanel';
 import toast from 'react-hot-toast';
 
@@ -14,14 +14,38 @@ export default function TutorDashboard() {
   const [tab, setTab] = useState(0);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState({ name: user?.name || '', subject: 'Mathematics', experience: 3, price: 400, bio: '', tags: '' });
+  const [profile, setProfile] = useState({ name: user?.name || '', subject: '', experience: 0, price: 0, bio: '', tags: '' });
+  const [tutorData, setTutorData] = useState(null);
 
   const load = async () => {
     setLoading(true);
     try {
+      if (user?.tutorId) {
+        const tRes = await getTutorById(user.tutorId);
+        setTutorData(tRes.data);
+        
+        let parsedTags = tRes.data.tags;
+        try {
+          if (typeof parsedTags === 'string') {
+             const parsed = JSON.parse(parsedTags);
+             if (Array.isArray(parsed)) parsedTags = parsed.join(', ');
+          }
+        } catch (e) {
+          if (Array.isArray(parsedTags)) parsedTags = parsedTags.join(', ');
+        }
+        
+        setProfile({
+          name: tRes.data.user?.name || user?.name || '',
+          subject: tRes.data.subject || '',
+          experience: tRes.data.experience || 0,
+          price: tRes.data.price || 0,
+          bio: tRes.data.bio || '',
+          tags: parsedTags || ''
+        });
+      }
       const { data } = await getMyBookings();
       setBookings(data || []);
-    } catch {}
+    } catch (e) { console.error('Error loading dashboard:', e); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -50,7 +74,7 @@ export default function TutorDashboard() {
     { icon: '📥', num: pending.length, label: 'Pending Requests', color: 'var(--warning)' },
     { icon: '📅', num: confirmed.length, label: 'Upcoming Sessions', color: 'var(--primary)' },
     { icon: '💰', num: `₹${totalEarnings.toLocaleString('en-IN')}`, label: 'Total Earnings', color: 'var(--success)' },
-    { icon: '⭐', num: '4.8', label: 'Average Rating', color: 'var(--accent)' },
+    { icon: '⭐', num: tutorData?.rating || 'New', label: 'Average Rating', color: 'var(--accent)' },
   ];
 
   return (
@@ -134,7 +158,7 @@ export default function TutorDashboard() {
         <div className="animate-fade grid-2" style={{ alignItems: 'start' }}>
           <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)' }}>
             <div className="section-title">Earnings Overview</div>
-            {[['This Week', '₹3,200', 65], ['This Month', `₹${totalEarnings.toLocaleString('en-IN')}`, 80], ['Total', `₹${(totalEarnings * 4).toLocaleString('en-IN')}`, 100]].map(([label, val, pct]) => (
+            {[['This Week', `₹${totalEarnings.toLocaleString('en-IN')}`, totalEarnings > 0 ? 100 : 0], ['This Month', `₹${totalEarnings.toLocaleString('en-IN')}`, totalEarnings > 0 ? 100 : 0], ['Total', `₹${totalEarnings.toLocaleString('en-IN')}`, totalEarnings > 0 ? 100 : 0]].map(([label, val, pct]) => (
               <div key={label} className="mt-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-muted">{label}</span>

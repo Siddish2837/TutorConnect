@@ -149,13 +149,38 @@ exports.completeBooking = async (req, res, next) => {
 exports.getAvailableSlots = async (req, res, next) => {
   try {
     const { tutorId, date } = req.query;
+    
+    // Determine if query date is today
+    const [year, month, day] = date.split('-');
+    const queryDate = new Date(year, month - 1, day);
+    const todayDate = new Date();
+    
+    const isToday = queryDate.getFullYear() === todayDate.getFullYear() &&
+                    queryDate.getMonth() === todayDate.getMonth() &&
+                    queryDate.getDate() === todayDate.getDate();
+    const currentHours = todayDate.getHours();
+
     const allSlots = ['09:00 AM','10:00 AM','11:00 AM','12:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM','06:00 PM'];
     const booked = await Booking.findAll({
       where: { tutor_id: tutorId, date, status: ['pending', 'confirmed'] },
       attributes: ['time'],
     });
     const bookedTimes = booked.map((b) => b.time);
-    const slots = allSlots.map((t) => ({ time: t, available: !bookedTimes.includes(t) }));
+    const slots = allSlots.map((t) => {
+      let available = !bookedTimes.includes(t);
+      if (isToday && available) {
+        let [timeStr, period] = t.split(' ');
+        let [hour] = timeStr.split(':');
+        hour = parseInt(hour, 10);
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        
+        if (hour <= currentHours) {
+          available = false;
+        }
+      }
+      return { time: t, available };
+    });
     res.json(slots);
   } catch (err) { next(err); }
 };
