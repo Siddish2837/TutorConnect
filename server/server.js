@@ -83,7 +83,7 @@ app.use(errorHandler);
 // DB sync & server start
 const PORT = process.env.PORT || 5000;
 
-db.sync({ alter: true })
+db.sync({ alter: { drop: false } })
   .then(() => {
     console.log('✅ Database synced');
     server.listen(PORT, () => {
