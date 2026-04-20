@@ -65,6 +65,7 @@ export default function TutorDashboard() {
       const tags = profile.tags ? profile.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
       await updateTutorProfile({ ...profile, tags });
       toast.success('Profile updated!');
+      load(); // Refresh to confirm saved data
     } catch (err) { toast.error(err.response?.data?.message || 'Update failed'); }
   };
 

@@ -54,22 +54,27 @@ exports.updateProfile = async (req, res, next) => {
     const tutor = await Tutor.findOne({ where: { user_id: req.user.id } });
     if (!tutor) return res.status(404).json({ message: 'Tutor profile not found' });
 
-    // Build update payload — only include fields that were actually sent
+    // Build update payload with only provided fields
     const tutorUpdate = {};
-    if (subject    !== undefined) tutorUpdate.subject      = subject;
-    if (experience !== undefined) tutorUpdate.experience   = experience;
-    if (price      !== undefined) tutorUpdate.price        = price;
-    if (bio        !== undefined) tutorUpdate.bio          = bio;
-    if (tags       !== undefined) tutorUpdate.tags         = tags;
+    if (subject      !== undefined) tutorUpdate.subject      = subject;
+    if (experience   !== undefined) tutorUpdate.experience   = experience;
+    if (price        !== undefined) tutorUpdate.price        = price;
+    if (bio          !== undefined) tutorUpdate.bio          = bio;
+    if (tags         !== undefined) tutorUpdate.tags         = tags;
     if (availability !== undefined) tutorUpdate.availability = availability;
 
     await tutor.update(tutorUpdate);
 
-    // Update display name on the User record (req.user is JWT payload, not a model)
-    if (name) await User.update({ name }, { where: { id: req.user.id } });
+    // Update display name separately (req.user is a Sequelize instance from authenticate)
+    if (name && name !== req.user.name) {
+      await req.user.update({ name });
+    }
 
-    res.json({ message: 'Profile updated', tutor });
-  } catch (err) { next(err); }
+    res.json({ message: 'Profile updated successfully', tutor });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    next(err);
+  }
 };
 
 // GET /api/tutors/subjects
