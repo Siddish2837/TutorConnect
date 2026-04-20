@@ -20,6 +20,8 @@ const Tutor = sequelize.define('Tutor', {
     get() { try { return JSON.parse(this.getDataValue('availability')); } catch { return {}; } },
     set(val) { this.setDataValue('availability', JSON.stringify(val)); },
   },
+  google_refresh_token: { type: DataTypes.TEXT, allowNull: true },
+  google_connected: { type: DataTypes.BOOLEAN, defaultValue: false },
 }, { tableName: 'tutors', underscored: true });
 
 module.exports = Tutor;

@@ -97,22 +97,17 @@ export default function ChatPanel({ initialUserId = null }) {
               {typing && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>typing...</span>}
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="chat-container flex-1">
               {messages.map((m, i) => {
                 const mine = m.sender_id === user?.id;
                 return (
-                  <div key={i} style={{ maxWidth: '70%', alignSelf: mine ? 'flex-end' : 'flex-start' }}>
-                    <div style={{
-                      padding: '0.65rem 1rem', borderRadius: 12, fontSize: '0.875rem', lineHeight: 1.5,
-                      background: mine ? 'linear-gradient(135deg, var(--primary), var(--secondary))' : 'var(--surface)',
-                      color: mine ? '#fff' : 'var(--text)',
-                      borderBottomRightRadius: mine ? 4 : 12,
-                      borderBottomLeftRadius: mine ? 12 : 4,
-                    }}>
-                      {m.content}
-                    </div>
-                    <div style={{ fontSize: '0.68rem', color: 'var(--text-dim)', marginTop: 3, textAlign: mine ? 'right' : 'left' }}>
-                      {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div key={i} className={`chat-row ${mine ? 'mine' : 'theirs'}`}>
+                    <div className="chat-bubble" style={{ boxShadow: '0 2px 5px rgba(0,0,0,0.2), 0 0 1px rgba(255,255,255,0.05)' }}>
+                      <div className="chat-text" style={{ fontSize: '0.925rem', fontWeight: 400 }}>{m.content}</div>
+                      <div className="chat-meta">
+                        <span>{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        {mine && <span style={{ color: 'var(--accent)', marginLeft: 4, fontSize: '0.7rem' }}>✓✓</span>}
+                      </div>
                     </div>
                   </div>
                 );

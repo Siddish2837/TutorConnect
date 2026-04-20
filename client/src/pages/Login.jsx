@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { login as loginApi } from '../services/authService';
+import { login as loginApi, getGoogleAuthUrl } from '../services/authService';
 import toast from 'react-hot-toast';
 
 export default function Login() {
@@ -23,6 +23,27 @@ export default function Login() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Login failed');
     } finally { setLoading(false); }
+  };
+
+  const handleGoogleLogin = async (role) => {
+    try {
+      const { data } = await getGoogleAuthUrl(role);
+      const popup = window.open(data.url, 'google-auth', 'width=600,height=600');
+      
+      const messageListener = (event) => {
+        if (event.data.type === 'AUTH_SUCCESS') {
+          const { token, user } = event.data;
+          login(user, token);
+          toast.success(`Welcome back, ${user.name.split(' ')[0]}! 🎉`);
+          const dash = user.role === 'tutor' ? '/dashboard/tutor' : '/dashboard/student';
+          navigate(dash);
+          window.removeEventListener('message', messageListener);
+        }
+      };
+      window.addEventListener('message', messageListener);
+    } catch (err) {
+      toast.error('Google login failed');
+    }
   };
 
   return (
@@ -59,6 +80,19 @@ export default function Login() {
             {loading ? '⏳ Signing in...' : 'Log In →'}
           </button>
         </form>
+
+        <div className="divider mt-6 mb-6"><span style={{ background: 'var(--bg-2)', padding: '0 1rem', fontSize: '0.75rem', opacity: 0.5 }}>OR CONTINUE WITH</span></div>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button className="btn btn-ghost btn-block flex items-center justify-center gap-2" onClick={() => handleGoogleLogin('student')}>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="16" />
+            Sign in as Student
+          </button>
+          <button className="btn btn-ghost btn-block flex items-center justify-center gap-2" onClick={() => handleGoogleLogin('tutor')}>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google" width="16" />
+            Sign in as Tutor
+          </button>
+        </div>
 
         <div className="divider mt-4 mb-4"><span style={{ background: 'var(--bg-2)', padding: '0 1rem' }}>New to TutorConnect?</span></div>
         <Link to="/register"><button className="btn btn-ghost btn-block">Create an Account</button></Link>

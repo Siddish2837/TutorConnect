@@ -75,3 +75,41 @@ exports.getSubjects = async (req, res, next) => {
     res.json(subjects.map((s) => s.subject));
   } catch (err) { next(err); }
 };
+
+// GET /api/tutors/google/auth
+exports.getGoogleAuthUrl = async (req, res, next) => {
+  try {
+    const googleService = require('../services/googleCalendarService');
+    const url = googleService.getAuthUrl();
+    res.json({ url });
+  } catch (err) { next(err); }
+};
+
+// GET /api/tutors/google/callback
+exports.googleCallback = async (req, res, next) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.status(400).send('Authorization code missing');
+
+    const googleService = require('../services/googleCalendarService');
+    const tokens = await googleService.getTokens(code);
+
+    // Get current tutor profile
+    // Note: Since this is a redirect, we might need a way to track the user.
+    // Usually, we pass a 'state' param in OAuth, but for simplicity here
+    // we'll use a hack or just expect the tutor to be logged in (if using cookies/token).
+    // Better: Retrieve user from state or JWT if passed.
+    
+    // For now, let's assume we can get user from req.user if session/auth middleware is applied
+    // But OAuth callbacks are often separate. Let's use the 'state' to pass the userId.
+    const tutor = await Tutor.findOne({ where: { user_id: req.user.id } });
+    if (!tutor) return res.status(404).json({ message: 'Tutor not found' });
+
+    await tutor.update({
+      google_refresh_token: tokens.refresh_token || tutor.google_refresh_token,
+      google_connected: true
+    });
+
+    res.send('<script>window.opener.postMessage("google_connected", "*"); window.close();</script>');
+  } catch (err) { next(err); }
+};

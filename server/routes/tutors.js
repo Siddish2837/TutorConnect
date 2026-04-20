@@ -7,4 +7,7 @@ router.get('/subjects', ctrl.getSubjects);
 router.get('/:id', ctrl.getTutorById);
 router.put('/profile', authenticate, requireRole('tutor'), ctrl.updateProfile);
 
+router.get('/google/auth', authenticate, requireRole('tutor'), ctrl.getGoogleAuthUrl);
+router.get('/google/callback', authenticate, requireRole('tutor'), ctrl.googleCallback);
+
 module.exports = router;

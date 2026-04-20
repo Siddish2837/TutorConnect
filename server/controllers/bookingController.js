@@ -1,4 +1,5 @@
-const { Booking, User, Tutor, Notification } = require('../models');
+const { Booking, User, Tutor, Notification, Message } = require('../models');
+const { v4: uuidv4 } = require('uuid');
 const emailService = require('../services/emailService');
 const { generateMeetLink } = require('../utils/helpers');
 
@@ -17,7 +18,8 @@ exports.createBooking = async (req, res, next) => {
     if (conflict) return res.status(409).json({ message: 'This slot is already booked' });
 
     const amount = (tutor.price * duration) / 60;
-    const session_link = generateMeetLink();
+    const meetingCode = uuidv4();
+    const session_link = generateMeetLink(meetingCode);
 
     const booking = await Booking.create({
       student_id: req.user.id,
@@ -93,11 +95,46 @@ exports.respondBooking = async (req, res, next) => {
   try {
     const { status } = req.body; // 'confirmed' or 'rejected'
     const booking = await Booking.findByPk(req.params.id, {
-      include: [{ model: User, as: 'student' }],
+      include: [
+        { model: User, as: 'student' },
+        { model: Tutor, as: 'tutor' },
+      ],
     });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
 
-    await booking.update({ status });
+    let sessionLink = booking.session_link;
+
+    if (status === 'confirmed' && booking.tutor.google_connected && booking.tutor.google_refresh_token) {
+      try {
+        const googleService = require('../services/googleCalendarService');
+        
+        // Convert date and time to ISO string for Google Calendar
+        // date is "YYYY-MM-DD", time is "HH:MM AM/PM"
+        const [timeStr, period] = booking.time.split(' ');
+        let [hours, minutes] = timeStr.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        
+        const startDateTime = new Date(`${booking.date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`);
+        const endDateTime = new Date(startDateTime.getTime() + booking.duration * 60000);
+
+        const hangoutLink = await googleService.createMeetLink(booking.tutor.google_refresh_token, {
+          subject: booking.tutor.subject,
+          studentName: booking.student.name,
+          studentEmail: booking.student.email,
+          startDateTime: startDateTime.toISOString(),
+          endDateTime: endDateTime.toISOString(),
+        });
+
+        if (hangoutLink) {
+          sessionLink = hangoutLink;
+        }
+      } catch (err) {
+        console.error('Failed to create Google Meet link, falling back to Jitsi:', err);
+      }
+    }
+
+    await booking.update({ status, session_link: sessionLink });
 
     // Notify student
     await Notification.create({
@@ -113,7 +150,7 @@ exports.respondBooking = async (req, res, next) => {
     if (status === 'confirmed') {
       emailService.sendBookingConfirmationEmail(booking.student.email, booking.student.name, {
         date: booking.date, time: booking.time, duration: booking.duration,
-        sessionLink: booking.session_link, amount: booking.amount,
+        sessionLink: sessionLink, amount: booking.amount,
       }).catch(() => {});
     }
 
@@ -138,8 +175,18 @@ exports.cancelBooking = async (req, res, next) => {
 // PUT /api/bookings/:id/complete
 exports.completeBooking = async (req, res, next) => {
   try {
-    const booking = await Booking.findByPk(req.params.id);
+    const booking = await Booking.findByPk(req.params.id, {
+      include: [{ model: Tutor, as: 'tutor' }]
+    });
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Only the student or the tutor of this booking can complete it
+    const isStudent = booking.student_id === req.user.id;
+    const isTutor = booking.tutor?.user_id === req.user.id;
+    if (!isStudent && !isTutor && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to complete this session' });
+    }
+
     await booking.update({ status: 'completed' });
     res.json({ message: 'Session marked as completed', booking });
   } catch (err) { next(err); }
@@ -191,5 +238,48 @@ exports.getAvailableSlots = async (req, res, next) => {
       return { time: t, available };
     });
     res.json(slots);
+  } catch (err) { next(err); }
+};
+// PUT /api/bookings/:id/notes
+exports.updateSessionNotes = async (req, res, next) => {
+  try {
+    const { notes } = req.body;
+    const booking = await Booking.findByPk(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    
+    // Authorization check
+    if (booking.student_id !== req.user.id && (await Tutor.findOne({ where: { id: booking.tutor_id, user_id: req.user.id } })) === null && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    await booking.update({ notes });
+    res.json({ message: 'Notes saved', notes });
+  } catch (err) { next(err); }
+};
+
+// GET /api/bookings/:id/history
+exports.getSessionHistory = async (req, res, next) => {
+  try {
+    const booking = await Booking.findByPk(req.params.id, {
+      include: [
+        { 
+          model: Message, 
+          as: 'sessionMessages', 
+          include: [{ model: User, as: 'sender', attributes: ['name', 'avatar_color'] }],
+          order: [['created_at', 'ASC']]
+        }
+      ]
+    });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    
+    // Authorization check
+    if (booking.student_id !== req.user.id && (await Tutor.findOne({ where: { id: booking.tutor_id, user_id: req.user.id } })) === null && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    res.json({
+      notes: booking.notes,
+      messages: booking.sessionMessages
+    });
   } catch (err) { next(err); }
 };

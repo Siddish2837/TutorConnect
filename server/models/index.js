@@ -25,6 +25,8 @@ Tutor.hasMany(Review, { foreignKey: 'tutor_id', as: 'reviews' });
 
 Message.belongsTo(User, { foreignKey: 'sender_id', as: 'sender' });
 Message.belongsTo(User, { foreignKey: 'receiver_id', as: 'receiver' });
+Message.belongsTo(Booking, { foreignKey: 'booking_id', as: 'booking' });
+Booking.hasMany(Message, { foreignKey: 'booking_id', as: 'sessionMessages' });
 
 Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 

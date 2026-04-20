@@ -9,5 +9,7 @@ router.get('/:id', authenticate, ctrl.getBookingById);
 router.put('/:id/respond', authenticate, requireRole('tutor'), ctrl.respondBooking);
 router.put('/:id/cancel', authenticate, ctrl.cancelBooking);
 router.put('/:id/complete', authenticate, ctrl.completeBooking);
+router.put('/:id/notes', authenticate, ctrl.updateSessionNotes);
+router.get('/:id/history', authenticate, ctrl.getSessionHistory);
 
 module.exports = router;

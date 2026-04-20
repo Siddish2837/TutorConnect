@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { getMyBookings, cancelBooking, completeBooking } from '../services/bookingService';
 import { getPaymentHistory } from '../services/paymentService';
 import ReviewModal from '../components/ReviewModal';
+import SessionHistoryModal from '../components/SessionHistoryModal';
 import ChatPanel from '../components/ChatPanel';
 import toast from 'react-hot-toast';
 
@@ -17,6 +18,7 @@ export default function StudentDashboard() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewBooking, setReviewBooking] = useState(null);
+  const [selectedHistoryBooking, setSelectedHistoryBooking] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -64,11 +66,11 @@ export default function StudentDashboard() {
       {/* Stats */}
       <div className="grid-4 mb-8">
         {stats.map(s => (
-          <div key={s.label} className="stat-card glass">
-            <div className="stat-icon" style={{ background: `${s.color}20` }}>{s.icon}</div>
+          <div key={s.label} className="stat-card glass" style={{ border: `1px solid ${s.color}30` }}>
+            <div className="stat-icon" style={{ background: `${s.color}20`, color: s.color }}>{s.icon}</div>
             <div>
-              <div className="stat-num">{s.num}</div>
-              <div className="stat-label">{s.label}</div>
+              <div className="stat-num" style={{ fontSize: '1.75rem', fontWeight: 800 }}>{s.num}</div>
+              <div className="stat-label" style={{ letterSpacing: '0.5px' }}>{s.label}</div>
             </div>
           </div>
         ))}
@@ -91,38 +93,56 @@ export default function StudentDashboard() {
                 <thead><tr><th>Tutor</th><th>Subject</th><th>Date & Time</th><th>Status</th><th>Amount</th><th>Actions</th></tr></thead>
                 <tbody>
                   {bookings.length ? bookings.map(b => (
-                    <tr key={b.id}>
+                    <tr key={b.id} className="row-hover">
                       <td>
-                        <div className="flex items-center gap-2">
-                          <div className="avatar" style={{ width: 36, height: 36, fontSize: '0.75rem', background: b.tutor?.user?.avatar_color || 'var(--primary)' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="avatar" style={{ width: 40, height: 40, fontSize: '0.85rem', background: b.tutor?.user?.avatar_color || 'var(--primary)', border: '2px solid rgba(255,255,255,0.1)' }}>
                             {b.tutor?.user?.name?.split(' ').map(w => w[0]).join('')}
                           </div>
-                          <span className="font-600">{b.tutor?.user?.name}</span>
+                          <div>
+                            <div className="font-600">{b.tutor?.user?.name}</div>
+                            <div className="text-xs text-muted">⭐ {b.tutor?.rating || 'New'}</div>
+                          </div>
                         </div>
                       </td>
-                      <td>{b.tutor?.subject}</td>
-                      <td>{b.date}<br /><span className="text-xs text-muted">{b.time}</span></td>
+                      <td><span className="badge badge-indigo">{b.tutor?.subject}</span></td>
+                      <td>
+                        <div className="font-500">{b.date}</div>
+                        <div className="text-xs text-muted">{b.time}</div>
+                      </td>
                       <td><span className={`status-badge status-${b.status}`}>{b.status}</span></td>
-                      <td className="font-bold">₹{b.amount}</td>
+                      <td className="font-700 text-lg">₹{b.amount}</td>
                       <td>
                         <div className="flex gap-2">
                           {b.status === 'confirmed' && (
-                            <button className="btn btn-success btn-sm" onClick={() => navigate(`/session/${b.id}`)}>Join Session</button>
+                            <button className="btn btn-primary btn-sm btn-pulse" onClick={() => navigate(`/session/${b.id}`)}>Join Session</button>
                           )}
                           {b.status === 'pending' && (
-                            <button className="btn btn-primary btn-sm" onClick={() => navigate(`/checkout/${b.id}`)}>Pay Now</button>
+                            <button className="btn btn-accent btn-sm" onClick={() => navigate(`/checkout/${b.id}`)}>Pay Now</button>
                           )}
                           {b.status === 'completed' && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => setReviewBooking(b)}>Rate ⭐</button>
+                            <>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setSelectedHistoryBooking(b)}>History 📝</button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setReviewBooking(b)}>Rate ⭐</button>
+                            </>
                           )}
                           {!['cancelled', 'completed', 'rejected'].includes(b.status) && (
-                            <button className="btn btn-danger btn-sm" onClick={() => handleCancel(b.id)}>Cancel</button>
+                            <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleCancel(b.id)}>Cancel</button>
                           )}
                         </div>
                       </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={6}><div className="empty-state"><div className="empty-icon">📅</div><h3>No bookings yet</h3><p>Find a tutor to get started!</p></div></td></tr>
+                    <tr>
+                      <td colSpan={6}>
+                        <div className="empty-state py-12">
+                          <div className="empty-icon text-muted" style={{ fontSize: '3rem' }}>📅</div>
+                          <h3 className="mt-4">No bookings found</h3>
+                          <p className="text-muted">Start your learning journey by finding a tutor!</p>
+                          <button className="btn btn-primary mt-6" onClick={() => navigate('/search')}>Find Tutors</button>
+                        </div>
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -154,14 +174,46 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* Tab 2: Reviews placeholder */}
       {tab === 2 && (
         <div className="animate-fade">
-          <div className="empty-state">
-            <div className="empty-icon">⭐</div>
-            <h3>Your Reviews</h3>
-            <p>Complete a session to leave a review for your tutor.</p>
-          </div>
+          {(() => {
+            const reviewed = bookings.filter(b => b.status === 'completed' && b.rating);
+            if (!reviewed.length) return (
+              <div className="empty-state">
+                <div className="empty-icon" style={{ fontSize: '3.5rem' }}>⭐</div>
+                <h3 className="mt-4">No Reviews Yet</h3>
+                <p className="text-muted">Complete a session and rate your tutor to see your reviews here.</p>
+                <button className="btn btn-primary mt-6" onClick={() => navigate('/search')}>Find a Tutor</button>
+              </div>
+            );
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {reviewed.map(b => (
+                  <div key={b.id} className="glass" style={{ padding: '1.25rem 1.5rem', borderRadius: 'var(--radius-lg)', display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+                    <div className="avatar" style={{ width: 48, height: 48, fontSize: '1rem', background: b.tutor?.user?.avatar_color || 'var(--primary)', flexShrink: 0 }}>
+                      {b.tutor?.user?.name?.split(' ').map(w => w[0]).join('')}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-bold" style={{ color: 'var(--text)' }}>{b.tutor?.user?.name}</span>
+                        <span className="badge badge-indigo">{b.tutor?.subject}</span>
+                        <span className="text-xs text-muted" style={{ marginLeft: 'auto' }}>{b.date}</span>
+                      </div>
+                      <div style={{ marginBottom: 6 }}>
+                        {'⭐'.repeat(b.rating)}{'☆'.repeat(5 - b.rating)}
+                        <span className="text-sm text-muted" style={{ marginLeft: 6 }}>{b.rating}/5</span>
+                      </div>
+                      {b.review_comment && (
+                        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          "{b.review_comment}"
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -177,6 +229,13 @@ export default function StudentDashboard() {
           booking={reviewBooking}
           onClose={() => setReviewBooking(null)}
           onSubmit={loadData}
+        />
+      )}
+
+      {selectedHistoryBooking && (
+        <SessionHistoryModal
+          booking={selectedHistoryBooking}
+          onClose={() => setSelectedHistoryBooking(null)}
         />
       )}
     </div>

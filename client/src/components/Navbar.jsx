@@ -10,6 +10,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
 
@@ -18,14 +19,17 @@ export default function Navbar() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
+  // Close menus on route change
+  useEffect(() => { setMobileOpen(false); setMenuOpen(false); }, [location.pathname]);
 
+  const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark');
   const initials = user?.name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '';
 
   const handleLogout = () => {
     logout();
     navigate('/');
     setMenuOpen(false);
+    setMobileOpen(false);
   };
 
   const dashPath = user?.role === 'admin' ? '/dashboard/admin'
@@ -33,6 +37,7 @@ export default function Navbar() {
     : '/dashboard/student';
 
   const isActive = (path) => location.pathname === path ? 'nav-link active' : 'nav-link';
+  const isMobileActive = (path) => location.pathname === path ? 'mobile-nav-link active' : 'mobile-nav-link';
 
   return (
     <>
@@ -46,7 +51,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          {/* Center Links */}
+          {/* Center Links (desktop) */}
           <div style={linksStyle} className="nav-links">
             <Link className={isActive('/')} to="/" style={linkStyle}>Home</Link>
             <Link className={isActive('/search')} to="/search" style={linkStyle}>Find Tutors</Link>
@@ -60,6 +65,7 @@ export default function Navbar() {
             <button onClick={toggleTheme} style={iconBtnStyle} title="Toggle Theme">
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
+
             {user ? (
               <>
                 {/* Notifications */}
@@ -70,50 +76,113 @@ export default function Navbar() {
                   )}
                 </button>
 
-                {/* User menu */}
-                <div style={{ position: 'relative' }}>
+                {/* User dropdown (desktop only) */}
+                <div style={{ position: 'relative' }} className="nav-links">
                   <button onClick={() => setMenuOpen(!menuOpen)} style={avatarBtnStyle}>
                     <div className="avatar" style={{ width: 36, height: 36, fontSize: '0.8rem', background: user.avatar_color || 'var(--primary)' }}>
                       {initials}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text)' }}>{user.name?.split(' ')[0]}</span>
-                      <span style={{ fontSize: '0.68rem', color: 'var(--primary)', fontWeight: 600, textTransform: 'capitalize' }}>{user.role}</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>{user.name?.split(' ')[0]}</span>
+                      <div className={`badge ${user.role === 'tutor' ? 'badge-accent' : 'badge-indigo'}`} style={{ fontSize: '0.6rem', padding: '0 4px', marginTop: 1 }}>
+                        {user.role}
+                      </div>
                     </div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>▼</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem', marginLeft: 4 }}>▼</span>
                   </button>
 
                   {menuOpen && (
                     <div style={dropdownStyle} className="animate-slide">
+                      <div style={{ padding: '0.65rem 0.85rem', borderBottom: '1px solid var(--border)', marginBottom: '4px' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text)' }}>{user.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>{user.email}</div>
+                      </div>
                       <Link to={dashPath} style={dropItemStyle} onClick={() => setMenuOpen(false)}>
-                        📊 Dashboard
+                        <span style={{ marginRight: 8 }}>📊</span> Dashboard
+                      </Link>
+                      <Link to="/search" style={dropItemStyle} onClick={() => setMenuOpen(false)}>
+                        <span style={{ marginRight: 8 }}>🔍</span> Find Tutors
                       </Link>
                       <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                       <button onClick={handleLogout} style={{ ...dropItemStyle, color: 'var(--danger)', width: '100%', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
-                        🚪 Logout
+                        <span style={{ marginRight: 8 }}>🚪</span> Logout
                       </button>
                     </div>
                   )}
                 </div>
+
+                {/* Hamburger (mobile only) */}
+                <button className="hamburger-btn" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">
+                  <span style={mobileOpen ? { transform: 'translateY(7px) rotate(45deg)' } : {}} />
+                  <span style={mobileOpen ? { opacity: 0 } : {}} />
+                  <span style={mobileOpen ? { transform: 'translateY(-7px) rotate(-45deg)' } : {}} />
+                </button>
               </>
             ) : (
               <>
-                <Link to="/login">
+                <Link to="/login" className="nav-links">
                   <button className="btn btn-ghost btn-sm">Log In</button>
                 </Link>
-                <Link to="/register">
+                <Link to="/register" className="nav-links">
                   <button className="btn btn-primary btn-sm">Sign Up</button>
                 </Link>
+                {/* Hamburger (mobile only, logged-out) */}
+                <button className="hamburger-btn" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">
+                  <span style={mobileOpen ? { transform: 'translateY(7px) rotate(45deg)' } : {}} />
+                  <span style={mobileOpen ? { opacity: 0 } : {}} />
+                  <span style={mobileOpen ? { transform: 'translateY(-7px) rotate(-45deg)' } : {}} />
+                </button>
               </>
             )}
           </div>
         </div>
       </nav>
 
+      {/* Mobile slide-down drawer */}
+      {mobileOpen && (
+        <div className="mobile-nav-drawer">
+          <Link className={isMobileActive('/')} to="/" onClick={() => setMobileOpen(false)}>
+            <span>🏠</span> Home
+          </Link>
+          <Link className={isMobileActive('/search')} to="/search" onClick={() => setMobileOpen(false)}>
+            <span>🔍</span> Find Tutors
+          </Link>
+          {user ? (
+            <>
+              <Link className={isMobileActive(dashPath)} to={dashPath} onClick={() => setMobileOpen(false)}>
+                <span>📊</span> Dashboard
+              </Link>
+              <div className="mobile-nav-divider" />
+              <div style={{ padding: '0.5rem 1rem', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
+                Signed in as <strong style={{ color: 'var(--text)' }}>{user.name}</strong>
+                <span className={`badge ${user.role === 'tutor' ? 'badge-accent' : 'badge-indigo'}`} style={{ marginLeft: 6 }}>{user.role}</span>
+              </div>
+              <button className="mobile-nav-link" onClick={handleLogout} style={{ color: 'var(--danger)' }}>
+                <span>🚪</span> Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="mobile-nav-divider" />
+              <Link className="mobile-nav-link" to="/login" onClick={() => setMobileOpen(false)}>
+                <span>🔑</span> Log In
+              </Link>
+              <Link className="mobile-nav-link" to="/register" onClick={() => setMobileOpen(false)}>
+                <span>✨</span> Sign Up
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
       <NotificationDrawer open={notifOpen} onClose={() => setNotifOpen(false)} />
 
-      {menuOpen && (
-        <div onClick={() => setMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199 }} />
+      {/* Backdrop to close dropdowns */}
+      {(menuOpen || mobileOpen) && (
+        <div
+          onClick={() => { setMenuOpen(false); setMobileOpen(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 198 }}
+        />
       )}
 
       <style>{`

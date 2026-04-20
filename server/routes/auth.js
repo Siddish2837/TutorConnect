@@ -23,4 +23,7 @@ router.post('/reset-password', [
 ], validate, ctrl.resetPassword);
 router.get('/me', authenticate, ctrl.getMe);
 
+router.get('/google/auth', ctrl.getGoogleAuthUrl);
+router.get('/google/callback', ctrl.googleCallback);
+
 module.exports = router;

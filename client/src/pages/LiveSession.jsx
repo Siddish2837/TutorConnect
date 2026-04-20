@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
-import { getBookingById, completeBooking } from '../services/bookingService';
+import { getBookingById, completeBooking, getSessionHistory, updateSessionNotes } from '../services/bookingService';
 import Whiteboard from '../components/Whiteboard';
 import ReviewModal from '../components/ReviewModal';
 import toast from 'react-hot-toast';
@@ -17,13 +18,83 @@ export default function LiveSession() {
   const [notes, setNotes] = useState('');
   const [wbChat, setWbChat] = useState([]);
   const [wbInput, setWbInput] = useState('');
+  const [syncingNotes, setSyncingNotes] = useState(false);
+  const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     getBookingById(bookingId)
       .then(r => setBooking(r.data))
       .catch(() => toast.error('Session not found'))
       .finally(() => setLoading(false));
-  }, [bookingId]);
+
+    // Socket Initialization
+    const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : 'http://localhost:5000';
+    console.log('🔄 Initializing Whiteboard Socket at:', `${apiUrl}/whiteboard`);
+    
+    const s = io(`${apiUrl}/whiteboard`, { 
+      auth: { token },
+      transports: ['websocket', 'polling']
+    });
+    socketRef.current = s;
+    setSocket(s);
+
+    s.on('connect', () => {
+      console.log('✅ Whiteboard socket connected! ID:', s.id);
+      s.emit('join_session', { bookingId });
+    });
+
+    s.on('connect_error', (err) => {
+      console.error('❌ Whiteboard socket connection error:', err.message);
+      toast.error('Real-time connection failed. Chat may be delayed.');
+    });
+
+    s.on('joined', (data) => {
+      console.log('📬 Joined session room:', data.bookingId);
+    });
+
+    s.on('chat_message', (data) => {
+      console.log('📩 New chat message received:', data);
+      setWbChat(prev => [...prev, { 
+        senderId: data.userId,
+        senderName: data.senderName,
+        text: data.message, 
+        time: new Date(data.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+      }]);
+    });
+
+    s.on('notes_update', (data) => {
+      console.log('📝 Remote notes update received');
+      setNotes(data.notes);
+    });
+
+    // Load History (Notes & Chat)
+    getSessionHistory(bookingId)
+      .then(r => {
+        setNotes(r.data.notes || '');
+        if (r.data.messages) {
+          setWbChat(r.data.messages.map(m => ({
+            senderId: m.sender_id,
+            senderName: m.sender?.name,
+            text: m.content,
+            time: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          })));
+        }
+      })
+      .catch(() => {});
+
+    return () => s.disconnect();
+  }, [bookingId, token, user?.id]);
+
+  const handleSaveNotes = async () => {
+    try {
+      await updateSessionNotes(bookingId, notes);
+      toast.success('Notes saved to session history!');
+    } catch (err) {
+      toast.error('Failed to save notes');
+    }
+  };
 
   const endSession = async () => {
     try {
@@ -35,13 +106,19 @@ export default function LiveSession() {
   };
 
   const sendWbChat = () => {
-    if (!wbInput.trim()) return;
-    setWbChat(prev => [...prev, { mine: true, text: wbInput, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+    const socket = socketRef.current;
+    if (!wbInput.trim() || !socket) {
+      console.warn('⚠️ Cannot send message: socket not ready or empty input');
+      return;
+    }
+    console.log('📤 Sending chat message:', wbInput);
+    socket.emit('chat_message', { bookingId, message: wbInput });
     setWbInput('');
-    setTimeout(() => {
-      setWbChat(prev => [...prev, { mine: false, text: 'Got it! Let me explain that on the board.', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-    }, 1200);
   };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [wbChat]);
 
   if (loading) return <LoadingSpinner />;
 
@@ -63,41 +140,31 @@ export default function LiveSession() {
 
       {/* Whiteboard */}
       <div className="mb-4">
-        <Whiteboard bookingId={bookingId} token={token} />
+        <Whiteboard bookingId={bookingId} token={token} socket={socket} />
       </div>
 
-      {/* Notes + Chat */}
-      <div className="grid-2">
-        <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)' }}>
-          <div className="section-title">Session Notes</div>
-          <textarea
-            className="form-textarea w-full"
-            rows={6}
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            placeholder="Take notes here..."
-          />
-          <button className="btn btn-primary btn-sm mt-3" onClick={() => toast.success('Notes saved!')}>Save Notes</button>
+      {/* Session Notes – full width */}
+      <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)', position: 'relative' }}>
+        <div className="flex justify-between items-center mb-3">
+          <div className="section-title m-0">Session Notes</div>
+          {syncingNotes && <div className="text-xs text-primary animate-pulse">Syncing...</div>}
         </div>
-
-        <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column' }}>
-          <div className="section-title">Quick Chat</div>
-          <div style={{ flex: 1, overflowY: 'auto', maxHeight: 200, marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {wbChat.map((m, i) => (
-              <div key={i} style={{ maxWidth: '80%', alignSelf: m.mine ? 'flex-end' : 'flex-start' }}>
-                <div style={{ padding: '0.5rem 0.85rem', borderRadius: 10, fontSize: '0.875rem', background: m.mine ? 'linear-gradient(135deg, var(--primary), var(--secondary))' : 'var(--surface)', color: m.mine ? '#fff' : 'var(--text)' }}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input className="form-input" style={{ flex: 1 }} placeholder="Message..." value={wbInput}
-              onChange={e => setWbInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && sendWbChat()} />
-            <button className="btn btn-primary btn-sm" onClick={sendWbChat}>Send</button>
-          </div>
-        </div>
+        <textarea
+          className="form-textarea w-full"
+          style={{ minHeight: 200, fontSize: '1rem', background: 'rgba(255,255,255,0.02)' }}
+          value={notes}
+          onChange={e => {
+            const newNotes = e.target.value;
+            setNotes(newNotes);
+            setSyncingNotes(true);
+            socketRef.current?.emit('notes_update', { bookingId, notes: newNotes });
+            setTimeout(() => setSyncingNotes(false), 800);
+          }}
+          placeholder="Take notes here..."
+        />
+        <button className="btn btn-primary btn-sm mt-4" onClick={handleSaveNotes}>Save to History</button>
       </div>
+
 
       {showReview && (
         <ReviewModal

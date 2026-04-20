@@ -132,3 +132,79 @@ exports.getMe = async (req, res) => {
     tutorApproved: tutorProfile?.approved || null,
   });
 };
+
+// GET /api/auth/google/auth?role=
+exports.getGoogleAuthUrl = async (req, res, next) => {
+  try {
+    const { role } = req.query; // 'student' or 'tutor'
+    const googleService = require('../services/googleCalendarService');
+    const url = googleService.getAuthUrl(role || 'student');
+    res.json({ url });
+  } catch (err) { next(err); }
+};
+
+// GET /api/auth/google/callback
+exports.googleCallback = async (req, res, next) => {
+  try {
+    const { code, state: role } = req.query; // 'state' contains the role
+    if (!code) return res.status(400).send('Code missing');
+
+    const googleService = require('../services/googleCalendarService');
+    const tokens = await googleService.getTokens(code);
+    const googleUser = await googleService.getUserInfo(tokens);
+
+    let user = await User.findOne({ where: { email: googleUser.email } });
+
+    if (!user) {
+      // Create new user
+      const colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444'];
+      const avatar_color = colors[Math.floor(Math.random() * colors.length)];
+      
+      user = await User.create({
+        name: googleUser.name,
+        email: googleUser.email,
+        password_hash: 'GOOGLE_AUTH', // Placeholder
+        role: role === 'tutor' ? 'tutor' : 'student',
+        verified: true,
+        avatar_color
+      });
+
+      if (user.role === 'tutor') {
+        await Tutor.create({
+          user_id: user.id,
+          subject: 'General',
+          price: 500,
+          approved: false,
+          google_refresh_token: tokens.refresh_token,
+          google_connected: !!tokens.refresh_token
+        });
+      }
+    } else {
+      // Existing user: Link Google if it's a tutor and not connected yet
+      if (user.role === 'tutor' && tokens.refresh_token) {
+        const tutor = await Tutor.findOne({ where: { user_id: user.id } });
+        if (tutor) {
+          await tutor.update({
+            google_refresh_token: tokens.refresh_token,
+            google_connected: true
+          });
+        }
+      }
+    }
+
+    const token = generateToken(user);
+    
+    // Redirect to frontend with token
+    res.send(`
+      <script>
+        window.opener.postMessage({ type: 'AUTH_SUCCESS', token: "${token}", user: ${JSON.stringify({
+          id: user.id, name: user.name, email: user.email, role: user.role, verified: user.verified
+        })} }, "*");
+        window.close();
+      </script>
+    `);
+  } catch (err) { 
+    console.error('Google Auth Error:', err);
+    res.status(500).send('Authentication failed');
+  }
+};

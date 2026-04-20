@@ -1,25 +1,29 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
-export default function Whiteboard({ bookingId, token }) {
+export default function Whiteboard({ bookingId, token, socket }) {
   const canvasRef = useRef(null);
   const ctxRef = useRef(null);
   const [tool, setTool] = useState('pencil');
   const [color, setColor] = useState('#6366f1');
   const [lineWidth, setLineWidth] = useState(3);
   const [drawing, setDrawing] = useState(false);
-  const [socket, setSocket] = useState(null);
+  const [remoteCursors, setRemoteCursors] = useState({});
   const lastPos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    const apiUrl = import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace('/api', '') : '';
-    const s = io(`${apiUrl}/whiteboard`, { auth: { token } });
-    setSocket(s);
-    s.emit('join_session', { bookingId });
-    s.on('draw', (data) => remoteDraw(data));
-    s.on('clear_canvas', () => clearLocal());
-    return () => s.disconnect();
-  }, [bookingId, token]);
+    if (!socket) return;
+    socket.on('draw', (data) => remoteDraw(data));
+    socket.on('clear_canvas', () => clearLocal());
+    socket.on('cursor_move', ({ userId, x, y }) => {
+      setRemoteCursors(prev => ({ ...prev, [userId]: { x, y } }));
+    });
+    return () => {
+      socket.off('draw');
+      socket.off('clear_canvas');
+      socket.off('cursor_move');
+    };
+  }, [socket]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -63,8 +67,15 @@ export default function Whiteboard({ bookingId, token }) {
 
     const drawData = { x: pos.x, y: pos.y, lx: lastPos.current.x, ly: lastPos.current.y, color: drawColor, width };
     socket?.emit('draw', { bookingId, drawData });
+    socket?.emit('cursor_move', { bookingId, x: pos.x, y: pos.y });
     lastPos.current = pos;
   }, [drawing, tool, color, lineWidth, socket, bookingId]);
+
+  const handleCursorMove = (e) => {
+    if (drawing) return; // 'draw' handles cursor_move when drawing
+    const pos = getPos(e);
+    socket?.emit('cursor_move', { bookingId, x: pos.x, y: pos.y });
+  };
 
   const remoteDraw = ({ x, y, lx, ly, color: c, width: w }) => {
     const ctx = ctxRef.current;
@@ -126,17 +137,29 @@ export default function Whiteboard({ bookingId, token }) {
           <button onClick={saveCanvas} style={{ padding: '0.4rem 0.75rem', borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer', fontSize: '0.8rem', background: 'rgba(16,185,129,0.2)', color: '#6ee7b7' }}>💾 Save</button>
         </div>
       </div>
-      <canvas
-        ref={canvasRef}
-        style={{ width: '100%', height: 440, display: 'block', cursor: tool === 'eraser' ? 'cell' : 'crosshair', touchAction: 'none' }}
-        onMouseDown={startDraw}
-        onMouseMove={draw}
-        onMouseUp={() => setDrawing(false)}
-        onMouseLeave={() => setDrawing(false)}
-        onTouchStart={startDraw}
-        onTouchMove={draw}
-        onTouchEnd={() => setDrawing(false)}
-      />
+      <div style={{ position: 'relative' }}>
+        <canvas
+          ref={canvasRef}
+          style={{ width: '100%', height: 440, display: 'block', cursor: tool === 'eraser' ? 'cell' : 'crosshair', touchAction: 'none' }}
+          onMouseDown={startDraw}
+          onMouseMove={(e) => { draw(e); handleCursorMove(e); }}
+          onMouseUp={() => setDrawing(false)}
+          onMouseLeave={() => setDrawing(false)}
+          onTouchStart={startDraw}
+          onTouchMove={(e) => { draw(e); handleCursorMove(e); }}
+          onTouchEnd={() => setDrawing(false)}
+        />
+        {Object.entries(remoteCursors).map(([uid, pos]) => (
+          <div key={uid} style={{
+            position: 'absolute', left: pos.x, top: pos.y,
+            width: 12, height: 12, background: 'var(--secondary)',
+            borderRadius: '50%', pointerEvents: 'none',
+            border: '2px solid white', boxShadow: '0 0 10px rgba(0,0,0,0.5)',
+            transform: 'translate(-50%, -50%)', transition: 'all 0.1s linear',
+            zIndex: 10
+          }} />
+        ))}
+      </div>
     </div>
   );
 }
