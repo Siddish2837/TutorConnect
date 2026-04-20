@@ -150,15 +150,23 @@ exports.getAvailableSlots = async (req, res, next) => {
   try {
     const { tutorId, date } = req.query;
     
-    // Determine if query date is today
-    const [year, month, day] = date.split('-');
-    const queryDate = new Date(year, month - 1, day);
-    const todayDate = new Date();
+    // Get current time in IST (Asia/Kolkata) to match user local time
+    const istTimeParts = new Intl.DateTimeFormat('en-CA', { 
+      timeZone: 'Asia/Kolkata', 
+      year: 'numeric', month: '2-digit', day: '2-digit', 
+      hour: '2-digit', hourCycle: 'h23' 
+    }).formatToParts(new Date());
+
+    const ist = {};
+    istTimeParts.forEach(p => ist[p.type] = p.value);
+
+    // Determine if query date is today in IST
+    const [qYear, qMonth, qDay] = date.split('-').map(Number);
+    const isToday = parseInt(ist.year) === qYear && 
+                    parseInt(ist.month) === qMonth && 
+                    parseInt(ist.day) === qDay;
     
-    const isToday = queryDate.getFullYear() === todayDate.getFullYear() &&
-                    queryDate.getMonth() === todayDate.getMonth() &&
-                    queryDate.getDate() === todayDate.getDate();
-    const currentHours = todayDate.getHours();
+    const currentHours = parseInt(ist.hour);
 
     const allSlots = ['09:00 AM','10:00 AM','11:00 AM','12:00 PM','02:00 PM','03:00 PM','04:00 PM','05:00 PM','06:00 PM'];
     const booked = await Booking.findAll({
@@ -175,6 +183,7 @@ exports.getAvailableSlots = async (req, res, next) => {
         if (period === 'PM' && hour !== 12) hour += 12;
         if (period === 'AM' && hour === 12) hour = 0;
         
+        // Disable slots that are in the past or currently starting
         if (hour <= currentHours) {
           available = false;
         }
