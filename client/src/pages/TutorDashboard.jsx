@@ -29,11 +29,15 @@ export default function TutorDashboard() {
         let parsedTags = tRes.data.tags;
         try {
           if (typeof parsedTags === 'string') {
-             const parsed = JSON.parse(parsedTags);
-             if (Array.isArray(parsed)) parsedTags = parsed.join(', ');
+            const parsed = JSON.parse(parsedTags);
+            if (Array.isArray(parsed)) parsedTags = parsed;
           }
         } catch (e) {
-          if (Array.isArray(parsedTags)) parsedTags = parsedTags.join(', ');
+          // ignore parse errors
+        }
+        
+        if (Array.isArray(parsedTags)) {
+          parsedTags = parsedTags.join(', ');
         }
         
         setProfile({
@@ -62,11 +66,17 @@ export default function TutorDashboard() {
 
   const handleSaveProfile = async () => {
     try {
-      const tags = profile.tags ? profile.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+      const tagsStr = Array.isArray(profile.tags) ? profile.tags.join(', ') : String(profile.tags || '');
+      const tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
       await updateTutorProfile({ ...profile, tags });
+      // Show success BEFORE load() — so a refresh failure never triggers "Update failed"
       toast.success('Profile updated!');
-      load(); // Refresh to confirm saved data
-    } catch (err) { toast.error(err.response?.data?.message || 'Update failed'); }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Update failed');
+      return; // Don't reload if save itself failed
+    }
+    // Reload outside try/catch so its errors don't corrupt the success flow
+    load().catch(e => console.error('Dashboard reload error after save:', e));
   };
 
   const handleConnectGoogle = async () => {
