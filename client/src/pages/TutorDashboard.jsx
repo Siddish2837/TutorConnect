@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMyBookings, respondBooking } from '../services/bookingService';
-import { updateTutorProfile, getTutorById, getGoogleAuthUrl } from '../services/tutorService';
+import { updateTutorProfile, getTutorById } from '../services/tutorService';
 import SessionHistoryModal from '../components/SessionHistoryModal';
-import ChatPanel from '../components/ChatPanel';
+import RescheduleModal from '../components/RescheduleModal';
 import toast from 'react-hot-toast';
 
-const TABS = ['Booking Requests', 'My Schedule', 'Earnings', 'Edit Profile', 'Messages'];
+const TABS = ['Booking Requests', 'My Schedule', 'Earnings', 'Edit Profile'];
 
 export default function TutorDashboard() {
   const { user } = useAuth();
@@ -18,6 +18,7 @@ export default function TutorDashboard() {
   const [profile, setProfile] = useState({ name: user?.name || '', subject: '', experience: 0, price: 0, bio: '', tags: '' });
   const [tutorData, setTutorData] = useState(null);
   const [selectedHistoryBooking, setSelectedHistoryBooking] = useState(null);
+  const [rescheduleBookingTarget, setRescheduleBookingTarget] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -77,24 +78,6 @@ export default function TutorDashboard() {
     }
     // Reload outside try/catch so its errors don't corrupt the success flow
     load().catch(e => console.error('Dashboard reload error after save:', e));
-  };
-
-  const handleConnectGoogle = async () => {
-    try {
-      const { data } = await getGoogleAuthUrl();
-      const popup = window.open(data.url, 'google-auth', 'width=600,height=600');
-      
-      const messageListener = (event) => {
-        if (event.data === 'google_connected') {
-          toast.success('Google Calendar Connected!');
-          load();
-          window.removeEventListener('message', messageListener);
-        }
-      };
-      window.addEventListener('message', messageListener);
-    } catch (err) {
-      toast.error('Failed to start Google connection');
-    }
   };
 
   const confirmed = bookings.filter(b => b.status === 'confirmed');
@@ -161,7 +144,12 @@ export default function TutorDashboard() {
                     ) : (
                       <div className="flex gap-2 items-center">
                         <span className={`status-badge status-${b.status}`}>{b.status}</span>
-                        {b.status === 'confirmed' && <button className="btn btn-primary btn-sm btn-pulse" onClick={() => navigate(`/session/${b.id}`)}>Start</button>}
+                        {b.status === 'confirmed' && (
+                          <>
+                            <button className="btn btn-primary btn-sm btn-pulse" onClick={() => navigate(`/session/${b.id}`)}>Start</button>
+                            <button className="btn btn-ghost btn-sm text-primary" onClick={() => setRescheduleBookingTarget(b)}>Reschedule</button>
+                          </>
+                        )}
                         {b.status === 'completed' && <button className="btn btn-ghost btn-sm" onClick={() => setSelectedHistoryBooking(b)}>History 📝</button>}
                       </div>
                     )}
@@ -194,7 +182,10 @@ export default function TutorDashboard() {
                 <div className="text-sm text-muted">{b.date} • {b.time} • {b.duration} min</div>
                 <a href={b.session_link} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--accent)' }}>🔗 {b.session_link}</a>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => navigate(`/session/${b.id}`)}>Start Session</button>
+              <div className="flex items-center gap-2">
+                <button className="btn btn-ghost btn-sm text-primary" onClick={() => setRescheduleBookingTarget(b)}>Reschedule</button>
+                <button className="btn btn-primary btn-sm" onClick={() => navigate(`/session/${b.id}`)}>Start Session</button>
+              </div>
             </div>
           ))}
         </div>
@@ -265,40 +256,23 @@ export default function TutorDashboard() {
               <div className="form-group"><label className="form-label">Professional Bio</label>
                 <textarea className="form-textarea" rows={5} value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} placeholder="Tell students about your teaching methodology..." /></div>
               <button className="btn btn-primary" onClick={handleSaveProfile} style={{ alignSelf: 'start', padding: '0.75rem 2rem' }}>Save Profile Changes</button>
-              
-              <div className="section-title mt-8 mb-4">Integrations & Tools</div>
-              <div className="glass" style={{ padding: '1.25rem', border: tutorData?.google_connected ? '1px solid var(--success)50' : '1px solid var(--border)', background: tutorData?.google_connected ? 'rgba(16,185,129,0.05)' : 'transparent' }}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div style={{ fontSize: '1.5rem' }}>🗓️</div>
-                    <div>
-                      <div className="font-bold flex items-center gap-2">
-                        Google Calendar 
-                        {tutorData?.google_connected && <span className="badge badge-success text-xs">Active</span>}
-                      </div>
-                      <div className="text-sm text-muted">{tutorData?.google_connected ? 'Automatically generating Google Meet links for every session.' : 'Connect to generate Google Meet links automatically.'}</div>
-                    </div>
-                  </div>
-                  <button 
-                    className={`btn ${tutorData?.google_connected ? 'btn-ghost' : 'btn-accent'} btn-sm`} 
-                    onClick={handleConnectGoogle}
-                    disabled={tutorData?.google_connected}
-                  >
-                    {tutorData?.google_connected ? 'Connected ✅' : 'Connect Google Account'}
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {tab === 4 && <div className="animate-fade"><ChatPanel /></div>}
-
       {selectedHistoryBooking && (
         <SessionHistoryModal
           booking={selectedHistoryBooking}
           onClose={() => setSelectedHistoryBooking(null)}
+        />
+      )}
+
+      {rescheduleBookingTarget && (
+        <RescheduleModal
+          booking={rescheduleBookingTarget}
+          onClose={() => setRescheduleBookingTarget(null)}
+          onSuccess={load}
         />
       )}
     </div>

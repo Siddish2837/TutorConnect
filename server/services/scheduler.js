@@ -54,3 +54,36 @@ cron.schedule('*/15 * * * *', async () => {
 });
 
 console.log('⏰ Session reminder scheduler started');
+
+// Run every 5 minutes — auto complete finished sessions
+cron.schedule('*/5 * * * *', async () => {
+  try {
+    const now = new Date();
+    // Fetch confirmed bookings today or earlier
+    const bookings = await Booking.findAll({
+      where: {
+        status: 'confirmed',
+        date: { [Op.lte]: now.toISOString().split('T')[0] }
+      }
+    });
+
+    for (const booking of bookings) {
+      // Parse session time
+      const [hourMin, period] = booking.time.split(' ');
+      let [hours, minutes] = hourMin.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+
+      const sessionEndTime = new Date(booking.date);
+      sessionEndTime.setHours(hours, minutes + booking.duration, 0, 0);
+
+      if (now > sessionEndTime) {
+        await booking.update({ status: 'completed' });
+        console.log(`✅ Auto-completed booking ${booking.id}`);
+      }
+    }
+  } catch (err) {
+    console.error('Auto-complete scheduler error:', err.message);
+  }
+});
+console.log('⏰ Auto-complete scheduler started');

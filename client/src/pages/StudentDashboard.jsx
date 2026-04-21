@@ -5,6 +5,7 @@ import { getMyBookings, cancelBooking, completeBooking } from '../services/booki
 import { getPaymentHistory } from '../services/paymentService';
 import ReviewModal from '../components/ReviewModal';
 import SessionHistoryModal from '../components/SessionHistoryModal';
+import RescheduleModal from '../components/RescheduleModal';
 import ChatPanel from '../components/ChatPanel';
 import toast from 'react-hot-toast';
 
@@ -19,6 +20,7 @@ export default function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [reviewBooking, setReviewBooking] = useState(null);
   const [selectedHistoryBooking, setSelectedHistoryBooking] = useState(null);
+  const [rescheduleBookingTarget, setRescheduleBookingTarget] = useState(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -127,7 +129,10 @@ export default function StudentDashboard() {
                             </>
                           )}
                           {!['cancelled', 'completed', 'rejected'].includes(b.status) && (
-                            <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleCancel(b.id)}>Cancel</button>
+                            <>
+                              <button className="btn btn-ghost btn-sm text-primary" onClick={() => setRescheduleBookingTarget(b)}>Reschedule</button>
+                              <button className="btn btn-ghost btn-sm text-danger" onClick={() => handleCancel(b.id)}>Cancel</button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -236,6 +241,14 @@ export default function StudentDashboard() {
         <SessionHistoryModal
           booking={selectedHistoryBooking}
           onClose={() => setSelectedHistoryBooking(null)}
+        />
+      )}
+
+      {rescheduleBookingTarget && (
+        <RescheduleModal
+          booking={rescheduleBookingTarget}
+          onClose={() => setRescheduleBookingTarget(null)}
+          onSuccess={loadData}
         />
       )}
     </div>

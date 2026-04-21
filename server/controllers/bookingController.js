@@ -159,6 +159,52 @@ exports.respondBooking = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// PUT /api/bookings/:id/reschedule
+exports.rescheduleBooking = async (req, res, next) => {
+  try {
+    const { date, time } = req.body;
+    const booking = await Booking.findByPk(req.params.id, {
+      include: [
+        { model: User, as: 'student' },
+        { model: Tutor, as: 'tutor', include: [{ model: User, as: 'user' }] },
+      ]
+    });
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    // Authorization check
+    const isStudent = booking.student_id === req.user.id;
+    const isTutor = booking.tutor.user_id === req.user.id;
+    if (!isStudent && !isTutor && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Check for slot conflict
+    const conflict = await Booking.findOne({
+      where: { tutor_id: booking.tutor_id, date, time, status: ['pending', 'confirmed'] },
+    });
+    if (conflict && conflict.id !== booking.id) {
+      return res.status(409).json({ message: 'This slot is already booked' });
+    }
+
+    await booking.update({ date, time });
+
+    // Notify the other party
+    const notifyUserId = isStudent ? booking.tutor.user_id : booking.student_id;
+    const actorName = isStudent ? booking.student.name : booking.tutor.user.name;
+
+    await Notification.create({
+      user_id: notifyUserId,
+      type: 'reschedule',
+      title: 'Session Rescheduled',
+      message: `${actorName} rescheduled your session to ${date} at ${time}.`,
+      link: isStudent ? '/dashboard/tutor' : '/dashboard/student',
+    });
+    req.io?.to(`user:${notifyUserId}`).emit('notification', { type: 'reschedule' });
+
+    res.json({ message: 'Booking rescheduled successfully', booking });
+  } catch (err) { next(err); }
+};
+
 // PUT /api/bookings/:id/cancel
 exports.cancelBooking = async (req, res, next) => {
   try {

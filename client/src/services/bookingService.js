@@ -9,3 +9,4 @@ export const cancelBooking = (id) => api.put(`/bookings/${id}/cancel`);
 export const completeBooking = (id) => api.put(`/bookings/${id}/complete`);
 export const updateSessionNotes = (id, notes) => api.put(`/bookings/${id}/notes`, { notes });
 export const getSessionHistory = (id) => api.get(`/bookings/${id}/history`);
+export const rescheduleBooking = (id, date, time) => api.put(`/bookings/${id}/reschedule`, { date, time });
