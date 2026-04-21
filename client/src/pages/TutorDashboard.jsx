@@ -7,7 +7,7 @@ import SessionHistoryModal from '../components/SessionHistoryModal';
 import RescheduleModal from '../components/RescheduleModal';
 import toast from 'react-hot-toast';
 
-const TABS = ['Booking Requests', 'My Schedule', 'Earnings', 'Edit Profile'];
+const TABS = ['Booking Requests', 'My Schedule', 'Earnings', 'Edit Profile', 'Support'];
 
 export default function TutorDashboard() {
   const { user } = useAuth();
@@ -256,6 +256,41 @@ export default function TutorDashboard() {
               <div className="form-group"><label className="form-label">Professional Bio</label>
                 <textarea className="form-textarea" rows={5} value={profile.bio} onChange={e => setProfile(p => ({ ...p, bio: e.target.value }))} placeholder="Tell students about your teaching methodology..." /></div>
               <button className="btn btn-primary" onClick={handleSaveProfile} style={{ alignSelf: 'start', padding: '0.75rem 2rem' }}>Save Profile Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === 4 && (
+        <div className="animate-fade">
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div className="glass" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', marginBottom: '2rem' }}>
+              <div className="section-title">Tutor Support 🎧</div>
+              <p className="text-muted mb-6">Need help managing your schedule or payments? We're here for you.</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: 'var(--bg-3)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                  <h4 className="font-bold mb-2">How do payouts work?</h4>
+                  <p className="text-sm text-muted">Earnings from completed sessions are automatically credited. You can track your weekly and monthly revenue in the Earnings tab.</p>
+                </div>
+                <div style={{ background: 'var(--bg-3)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                  <h4 className="font-bold mb-2">What happens if a student reschedules?</h4>
+                  <p className="text-sm text-muted">Students can only select slots strictly from your updated un-booked availability. You will simply receive an instant notification of the new time slot.</p>
+                </div>
+                <div style={{ background: 'var(--bg-3)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                  <h4 className="font-bold mb-2">How do I capture Session Notes?</h4>
+                  <p className="text-sm text-muted">During an active session, use the 'Session Notes' panel inside the live whiteboard room. These notes are perfectly preserved in the booking history when the session completes.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✉️</div>
+              <h3 className="font-bold mb-2">Contact TutorConnect</h3>
+              <p className="text-muted text-sm mb-6">Reach out immediately for urgent account issues or disputes.</p>
+              <a href="mailto:siddish45@gmail.com" className="btn btn-primary" style={{ display: 'inline-flex', padding: '0.75rem 2rem' }}>
+                Email siddish45@gmail.com
+              </a>
             </div>
           </div>
         </div>

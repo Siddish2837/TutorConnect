@@ -9,7 +9,7 @@ import RescheduleModal from '../components/RescheduleModal';
 import ChatPanel from '../components/ChatPanel';
 import toast from 'react-hot-toast';
 
-const TABS = ['My Bookings', 'Payments', 'Reviews', 'Messages'];
+const TABS = ['My Bookings', 'Payments', 'Reviews', 'Support'];
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -222,10 +222,38 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {/* Tab 3: Messages */}
       {tab === 3 && (
         <div className="animate-fade">
-          <ChatPanel />
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <div className="glass" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', marginBottom: '2rem' }}>
+              <div className="section-title">Customer Support 🎧</div>
+              <p className="text-muted mb-6">Need help? We are here to support your learning journey.</p>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: 'var(--bg-3)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                  <h4 className="font-bold mb-2">How do I join a session?</h4>
+                  <p className="text-sm text-muted">Go to 'My Bookings', find your confirmed session, and click 'Join Session'. A real-time whiteboard environment will instantly open.</p>
+                </div>
+                <div style={{ background: 'var(--bg-3)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                  <h4 className="font-bold mb-2">How do I reschedule a class?</h4>
+                  <p className="text-sm text-muted">Click the 'Reschedule' button next to any pending or confirmed booking. Choose an available slot from your tutor's schedule, and they will be instantly notified.</p>
+                </div>
+                <div style={{ background: 'var(--bg-3)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                  <h4 className="font-bold mb-2">What is the refund policy?</h4>
+                  <p className="text-sm text-muted">You can cancel any booking before it begins by clicking 'Cancel'. The amount will automatically be initiated for refund back to your original payment method within 3-5 days.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="glass" style={{ padding: '2rem', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✉️</div>
+              <h3 className="font-bold mb-2">Contact TutorConnect</h3>
+              <p className="text-muted text-sm mb-6">Can't find the answer you're looking for? Email our support team directly.</p>
+              <a href="mailto:siddish45@gmail.com" className="btn btn-primary" style={{ display: 'inline-flex', padding: '0.75rem 2rem' }}>
+                Email siddish45@gmail.com
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
